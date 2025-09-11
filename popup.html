@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>需求链接收纳器</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; width: 320px; margin: 0; padding: 12px; }
+    h3 { margin: 0 0 8px; }
+    .row { display: flex; gap: 8px; margin-bottom: 8px; }
+    select, input, button { padding: 8px; font-size: 14px; }
+    select { flex: 1; }
+    input[type=text] { flex: 1; }
+    .links { max-height: 260px; overflow: auto; border: 1px solid #eee; border-radius: 8px; padding: 6px; }
+    .link { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; }
+    .link:hover { background: #f7f7f7; }
+    .link img { width: 16px; height: 16px; }
+    .link a { text-decoration: none; color: #333; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .muted { color: #777; font-size: 12px; }
+    .actions { display: flex; gap: 8px; }
+    .tag { font-size: 12px; padding: 2px 6px; border-radius: 999px; background: #efefef; }
+  </style>
+</head>
+<body>
+  <h3>需求链接收纳器</h3>
+
+  <div class="row">
+    <select id="reqSelect"></select>
+    <button id="archiveBtn" title="归档/恢复">归档</button>
+    <button id="manageBtn" title="管理">管理</button>
+  </div>
+
+  <div class="row">
+    <input id="newReqInput" type="text" placeholder="新建需求名称" />
+    <button id="createReqBtn">新建</button>
+  </div>
+
+  <div class="row">
+    <button id="addCurrentBtn" style="flex:1">将当前页面加入</button>
+    <button id="openAllBtn" title="打开本需求全部链接">全部打开</button>
+  </div>
+
+  <div class="row">
+    <input id="searchInput" type="text" placeholder="在链接中搜索..." />
+  </div>
+
+  <div class="links" id="links"></div>
+
+  <div class="muted" id="hint"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

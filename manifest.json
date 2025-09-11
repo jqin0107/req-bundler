@@ -1,0 +1,21 @@
+{
+    "manifest_version": 3,
+    "name": "需求链接收纳器",
+    "version": "1.0.0",
+    "description": "按“需求”收纳一组相关网页链接，支持归档与快速打开。",
+    "icons": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "action": {
+      "default_title": "需求链接收纳器",
+      "default_popup": "popup.html"
+    },
+    "options_page": "options.html",
+    "permissions": ["storage", "tabs", "contextMenus"],
+    "background": {
+      "service_worker": "background.js"
+    }
+  }

@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>管理需求</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 16px; }
+    h2 { margin-top: 0; }
+    .row { display: flex; gap: 8px; margin-bottom: 12px; }
+    input, button { padding: 8px; font-size: 14px; }
+    .list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { border: 1px solid #eee; border-radius: 10px; padding: 10px; }
+    .card h3 { margin: 0 0 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .muted { color: #777; font-size: 12px; }
+    .links { margin-top: 6px; max-height: 200px; overflow: auto; }
+    .link { display: flex; gap: 6px; align-items: center; }
+    .link a { flex: 1; text-decoration: none; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+  <h2>管理需求</h2>
+  <div class="row">
+    <input id="q" placeholder="搜索需求名称/链接标题/URL..." style="flex:1" />
+    <button id="back">返回弹窗</button>
+  </div>
+  <div class="list" id="list"></div>
+  <script src="options.js"></script>
+</body>
+</html>
