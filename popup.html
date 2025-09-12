@@ -2,50 +2,138 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>需求链接收纳器</title>
+  <title>Management Helper</title>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; width: 320px; margin: 0; padding: 12px; }
-    h3 { margin: 0 0 8px; }
-    .row { display: flex; gap: 8px; margin-bottom: 8px; }
-    select, input, button { padding: 8px; font-size: 14px; }
-    select { flex: 1; }
-    input[type=text] { flex: 1; }
-    .links { max-height: 260px; overflow: auto; border: 1px solid #eee; border-radius: 8px; padding: 6px; }
-    .link { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; }
-    .link:hover { background: #f7f7f7; }
-    .link img { width: 16px; height: 16px; }
-    .link a { text-decoration: none; color: #333; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .muted { color: #777; font-size: 12px; }
-    .actions { display: flex; gap: 8px; }
-    .tag { font-size: 12px; padding: 2px 6px; border-radius: 999px; background: #efefef; }
+    :root{
+      --radius:12px; --border:#e6e6e6; --muted:#5f6368; --text:#202124;
+      --bg:#ffffff; --surface:#fafafa; --primary:#1a73e8; --primary-pressed:#1558b0;
+      --shadow-1:0 1px 2px rgba(0,0,0,.1),0 1px 3px rgba(0,0,0,.08);
+      --shadow-2:0 2px 6px rgba(0,0,0,.12),0 6px 12px rgba(0,0,0,.08);
+    }
+    *{box-sizing:border-box}
+    html,body{
+      margin:0; padding:0; color:var(--text); background:var(--bg);
+      font-family:Roboto,"Noto Sans",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei UI",sans-serif;
+    }
+
+    /* 布局：顶部 header / hint / 列表 / 底部 footer(只有“：”) */
+    body{min-width:360px; max-width:420px; padding:12px;}
+    .app{display:flex; flex-direction:column;}
+
+    /* Header：中间标题，右上角 + */
+    header{
+      position:relative; display:flex; align-items:center; justify-content:center;
+      height:32px; margin-bottom:8px;
+    }
+    header h3{
+      margin:0; font-size:16px; font-weight:600;
+      padding-right:44px; /* 预留右侧空间，防止被“+”覆盖 */
+    }
+    /* 右上角 + 按钮 */
+    #btnAdd{
+      position:absolute; top:0; right:0;
+      width:32px; height:32px; border:1px solid var(--border);
+      border-radius:10px; background:#fff; cursor:pointer;
+      display:grid; place-items:center; box-shadow:var(--shadow-1);
+      transition:background .12s, transform .08s;
+    }
+    #btnAdd:hover{ background:#f7f9fc; }
+    #btnAdd:active{ transform:translateY(1px); }
+
+    .hint{ color:var(--muted); font-size:12px; margin:6px 0 10px; }
+
+    /* 需求卡片 */
+    .req{
+      border:1px solid var(--border); border-radius:var(--radius);
+      margin-bottom:10px; overflow:hidden; background:#fff; box-shadow:var(--shadow-1);
+    }
+    .req-header{
+      display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px;
+      padding:10px 12px; cursor:pointer; background:var(--surface);
+    }
+    .req-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+    .req-btns{ display:flex; gap:8px; }
+
+    .btn{
+      padding:6px 12px; font-size:12px; border:1px solid var(--border);
+      border-radius:999px; background:#fff; cursor:pointer;
+      transition:background .12s, transform .08s;
+    }
+    .btn:hover{ background:#f7f9fc; }
+    .btn:active{ transform:translateY(1px); }
+    .btn-primary{ background:var(--primary); color:#fff; border-color:transparent; }
+    .btn-primary:hover{ filter:brightness(1.05); }
+    .btn-danger{ color:#b3261e; border-color:#f1c7c7; }
+    .btn-danger:hover{ background:#fff5f5; }
+
+    .req-body{ display:none; padding:10px 12px 12px; border-top:1px solid var(--border); background:#fff; }
+    .req.open .req-body{ display:block; }
+
+    .links{ max-height:240px; overflow:auto; border:1px solid #f0f0f0; border-radius:10px; padding:6px; background:#fff; }
+    .link-row{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:8px; }
+    .link-row:hover{ background:#f7f9fc; }
+    .link-row img{ width:16px; height:16px; }
+    .link-row a{ flex:1; color:#1f1f1f; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .muted{ color:var(--muted); font-size:12px; }
+
+    /* 列表容器 */
+    #reqList{ display:flex; flex-direction:column; }
+
+    /* 底部一行：只放“：”，永远位于列表之后且右对齐 */
+    footer.footer{
+      display:flex; justify-content:flex-end; align-items:center;
+      border-top:1px solid var(--border); margin-top:8px; padding-top:8px;
+    }
+    #btnMore{
+      width:40px; height:40px; border:none; border-radius:20px;
+      background:var(--primary); color:#fff; font-size:18px;
+      box-shadow:var(--shadow-2); cursor:pointer;
+      transition:filter .12s, transform .08s;
+    }
+    #btnMore:hover{ filter:brightness(1.05); }
+    #btnMore:active{ transform:translateY(1px); }
+
+    /* 归档面板（位置随内容，不固定悬浮） */
+    .overlay{ position:fixed; inset:0; background:rgba(32,33,36,.08); display:none; z-index:10; }
+    .overlay.show{ display:block; }
+    .panel{
+      position:absolute; right:10px; bottom:64px; width:340px;
+      background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow:var(--shadow-2); padding:10px 10px 12px;
+    }
+    .panel h4{ margin:4px 0 8px; font-size:14px; font-weight:600; }
+    .arch-item{
+      border:1px solid #f0f0f0; border-radius:10px; padding:8px; margin-bottom:8px;
+      display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; background:#fff;
+    }
+    .arch-ops{ display:flex; gap:6px; }
   </style>
 </head>
 <body>
-  <h3>需求链接收纳器</h3>
+  <div class="app">
+    <header>
+      <h3>Management Helper</h3>
+      <button id="btnAdd" title="添加新需求">+</button>
+    </header>
 
-  <div class="row">
-    <select id="reqSelect"></select>
-    <button id="archiveBtn" title="归档/恢复">归档</button>
-    <button id="manageBtn" title="管理">管理</button>
+    <div class="hint">点击任一需求可展开查看链接；右侧 <b>Done</b> 可归档该需求。</div>
+
+    <div id="reqList"></div>
+
+    <!-- 单独一行，右下角“：” -->
+    <footer class="footer">
+      <button id="btnMore" title="更多 / 归档管理">：</button>
+    </footer>
   </div>
 
-  <div class="row">
-    <input id="newReqInput" type="text" placeholder="新建需求名称" />
-    <button id="createReqBtn">新建</button>
+  <!-- 归档/设置 面板 -->
+  <div id="overlay" class="overlay">
+    <div class="panel">
+      <h4>归档的需求</h4>
+      <div id="archivedList"></div>
+      <div class="muted">提示：可恢复、重命名或删除归档的需求。</div>
+    </div>
   </div>
-
-  <div class="row">
-    <button id="addCurrentBtn" style="flex:1">将当前页面加入</button>
-    <button id="openAllBtn" title="打开本需求全部链接">全部打开</button>
-  </div>
-
-  <div class="row">
-    <input id="searchInput" type="text" placeholder="在链接中搜索..." />
-  </div>
-
-  <div class="links" id="links"></div>
-
-  <div class="muted" id="hint"></div>
 
   <script src="popup.js"></script>
 </body>
