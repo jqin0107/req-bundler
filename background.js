@@ -1,6 +1,6 @@
 // 数据结构：
 // db = {
-//   requirements: [{ id, title, archived, createdAt }],
+//   requirements: [{ id, title, archived, createdAt, priority }], // 'p0' | 'p1' | 'p2'
 //   linksByReq: { [id]: [{ id, title, url, favicon, addedAt }] },
 //   lastSelectedRequirementId: string | null
 // }
@@ -17,9 +17,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   ensureContextMenu();
 });
 
-chrome.runtime.onStartup.addListener(() => {
-  ensureContextMenu();
-});
+chrome.runtime.onStartup.addListener(() => ensureContextMenu());
 
 function ensureContextMenu() {
   chrome.contextMenus.removeAll(() => {
@@ -35,37 +33,45 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'quickAdd') {
     const { db } = await chrome.storage.local.get('db');
     const rid = db?.lastSelectedRequirementId;
-    if (!rid) return notify('请先在弹窗中选择/创建一个需求');
-    if (!tab || !tab.url) return notify('无法获取当前标签页');
+    if (!rid) return toast('请先在弹窗中选择/创建一个需求');
+    if (!tab || !tab.url) return toast('无法获取当前标签页');
 
     await addLinkToRequirement(rid, {
       title: tab.title || '未命名页面',
       url: tab.url,
       favicon: tab.favIconUrl || '',
     });
-    notify('已加入：' + (tab.title || tab.url));
+    toast('已加入：' + (tab.title || tab.url));
   }
 });
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const wrap = (p) => p.then((res) => sendResponse({ ok: true, data: res }))
                       .catch((e) => sendResponse({ ok: false, error: String(e) }));
-  if (msg?.type === 'db:get') { wrap(chrome.storage.local.get('db').then(({ db }) => db || DEFAULT_DB)); return true; }
-  if (msg?.type === 'req:create') { wrap(createRequirement(msg.title)); return true; }
-  if (msg?.type === 'req:select') { wrap(setLastSelected(msg.id)); return true; }
-  if (msg?.type === 'req:rename') { wrap(renameRequirement(msg.id, msg.title)); return true; }
-  if (msg?.type === 'req:archive') { wrap(setArchive(msg.id, true)); return true; }
-  if (msg?.type === 'req:unarchive') { wrap(setArchive(msg.id, false)); return true; }
-  if (msg?.type === 'req:delete') { wrap(deleteRequirement(msg.id)); return true; }
-  if (msg?.type === 'link:add') { wrap(addLinkToRequirement(msg.id, msg.link)); return true; }
-  if (msg?.type === 'link:remove') { wrap(removeLink(msg.id, msg.linkId)); return true; }
+
+  if (msg?.type === 'db:get')            { wrap(chrome.storage.local.get('db').then(({ db }) => db || DEFAULT_DB)); return true; }
+  if (msg?.type === 'req:create')        { wrap(createRequirement(msg.title)); return true; }
+  if (msg?.type === 'req:select')        { wrap(setLastSelected(msg.id)); return true; }
+  if (msg?.type === 'req:rename')        { wrap(renameRequirement(msg.id, msg.title)); return true; }
+  if (msg?.type === 'req:archive')       { wrap(setArchive(msg.id, true)); return true; }
+  if (msg?.type === 'req:unarchive')     { wrap(setArchive(msg.id, false)); return true; }
+  if (msg?.type === 'req:delete')        { wrap(deleteRequirement(msg.id)); return true; }
+  if (msg?.type === 'req:setPriority')   { wrap(setPriority(msg.id, msg.priority)); return true; }
+  if (msg?.type === 'link:add')          { wrap(addLinkToRequirement(msg.id, msg.link)); return true; }
+  if (msg?.type === 'link:remove')       { wrap(removeLink(msg.id, msg.linkId)); return true; }
 });
 
 async function createRequirement(title) {
   const { db } = await chrome.storage.local.get('db');
   const base = db || DEFAULT_DB;
   const id = 'req_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const req = { id, title: title?.trim() || 'Untitled', archived: false, createdAt: Date.now() };
+  const req = {
+    id,
+    title: title?.trim() || 'Untitled',
+    archived: false,
+    createdAt: Date.now(),
+    priority: 'p1', // 默认 P1
+  };
   base.requirements.unshift(req);
   base.linksByReq[id] = [];
   base.lastSelectedRequirementId = id;
@@ -87,6 +93,17 @@ async function renameRequirement(id, title) {
   const i = base.requirements.findIndex(r => r.id === id);
   if (i === -1) throw new Error('未找到需求');
   base.requirements[i].title = title?.trim() || base.requirements[i].title;
+  await chrome.storage.local.set({ db: base });
+  return base.requirements[i];
+}
+
+async function setPriority(id, priority) {
+  const { db } = await chrome.storage.local.get('db');
+  const base = db || DEFAULT_DB;
+  const i = base.requirements.findIndex(r => r.id === id);
+  if (i === -1) throw new Error('未找到需求');
+  if (!['p0','p1','p2'].includes(priority)) throw new Error('非法优先级');
+  base.requirements[i].priority = priority;
   await chrome.storage.local.set({ db: base });
   return base.requirements[i];
 }
@@ -122,7 +139,6 @@ async function addLinkToRequirement(id, { title, url, favicon }) {
     favicon: favicon || '',
     addedAt: Date.now(),
   };
-  // 去重：同一需求里同一URL不重复
   const exists = base.linksByReq[id].some(l => l.url === url);
   if (!exists) base.linksByReq[id].unshift(link);
   await chrome.storage.local.set({ db: base });
@@ -137,8 +153,8 @@ async function removeLink(id, linkId) {
   return true;
 }
 
-function notify(message) {
+function toast(message) {
   chrome.action.setBadgeText({ text: '✔' });
   setTimeout(() => chrome.action.setBadgeText({ text: '' }), 1500);
-  console.log('[Management Helper]', message);
+  console.log('[Twos]', message);
 }

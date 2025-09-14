@@ -1,138 +1,161 @@
 <!doctype html>
-<html>
+<html data-theme="light">
 <head>
   <meta charset="utf-8" />
-  <title>Management Helper</title>
+  <title>Twos</title>
+  <meta name="color-scheme" content="light dark" />
   <style>
     :root{
+      /* Light */
       --radius:12px; --border:#e6e6e6; --muted:#5f6368; --text:#202124;
-      --bg:#ffffff; --surface:#fafafa; --primary:#1a73e8; --primary-pressed:#1558b0;
-      --shadow-1:0 1px 2px rgba(0,0,0,.1),0 1px 3px rgba(0,0,0,.08);
-      --shadow-2:0 2px 6px rgba(0,0,0,.12),0 6px 12px rgba(0,0,0,.08);
+      --bg:#ffffff; --surface:#fafafa;
+      --shadow-1:0 1px 2px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08);
+      --shadow-2:0 2px 6px rgba(0,0,0,.14),0 6px 12px rgba(0,0,0,.10);
+      --shadow-3:0 8px 20px rgba(0,0,0,.18);
+      --icon:#1f1f1f;
+      --danger:#b3261e;
+      --accent:#5f6368;
+      --accent-hover:#202124;
     }
-    *{box-sizing:border-box}
+    [data-theme="dark"]{
+      --border:#34373b; --muted:#9aa0a6; --text:#e8eaed;
+      --bg:#15171a; --surface:#1b1f23;
+      --shadow-1:0 1px 2px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);
+      --shadow-2:0 2px 6px rgba(0,0,0,.6),0 6px 12px rgba(0,0,0,.5);
+      --shadow-3:0 8px 20px rgba(0,0,0,.65);
+      --icon:#e8eaed;
+      --accent:#9aa0a6;
+      --accent-hover:#e8eaed;
+    }
+
+    *{ box-sizing:border-box; }
     html,body{
       margin:0; padding:0; color:var(--text); background:var(--bg);
       font-family:Roboto,"Noto Sans",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei UI",sans-serif;
     }
+    body{ width:480px; padding:12px; }
+    .app{ display:flex; flex-direction:column; }
 
-    /* 布局：顶部 header / hint / 列表 / 底部 footer(只有“：”) */
-    body{min-width:360px; max-width:420px; padding:12px;}
-    .app{display:flex; flex-direction:column;}
-
-    /* Header：中间标题，右上角 + */
     header{
-      position:relative; display:flex; align-items:center; justify-content:center;
-      height:32px; margin-bottom:8px;
+      display:grid; grid-template-columns: 32px 1fr 32px;
+      align-items:center; margin-bottom:8px; column-gap:8px;
     }
-    header h3{
-      margin:0; font-size:16px; font-weight:600;
-      padding-right:44px; /* 预留右侧空间，防止被“+”覆盖 */
+    .header-spacer{ width:32px; height:32px; }
+    .title{
+      text-align:center; font-size:16px; font-weight:600; margin:0;
+      line-height:32px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
-    /* 右上角 + 按钮 */
-    #btnAdd{
-      position:absolute; top:0; right:0;
+
+    .btn-icon{
       width:32px; height:32px; border:1px solid var(--border);
-      border-radius:10px; background:#fff; cursor:pointer;
-      display:grid; place-items:center; box-shadow:var(--shadow-1);
-      transition:background .12s, transform .08s;
+      border-radius:10px; background:#fff0; cursor:pointer;
+      display:grid; place-items:center; user-select:none; box-shadow:var(--shadow-1);
+      transition:background .12s, transform .08s, box-shadow .12s;
+      color:var(--icon);
     }
-    #btnAdd:hover{ background:#f7f9fc; }
-    #btnAdd:active{ transform:translateY(1px); }
+    .btn-icon:hover{ background:color-mix(in oklab, var(--surface) 90%, transparent); }
+    .btn-icon:active{ transform:translateY(1px); box-shadow:none; }
 
-    .hint{ color:var(--muted); font-size:12px; margin:6px 0 10px; }
-
-    /* 需求卡片 */
     .req{
       border:1px solid var(--border); border-radius:var(--radius);
-      margin-bottom:10px; overflow:hidden; background:#fff; box-shadow:var(--shadow-1);
+      margin-bottom:10px; overflow:hidden; background:var(--bg); box-shadow:var(--shadow-1);
+      transition: box-shadow .15s ease, transform .12s ease;
     }
+    .req:not(.open):hover{ box-shadow:var(--shadow-3); transform:translateY(-1px); }
+
     .req-header{
       display:grid; grid-template-columns:1fr auto; align-items:center; gap:8px;
       padding:10px 12px; cursor:pointer; background:var(--surface);
     }
-    .req-title{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
-    .req-btns{ display:flex; gap:8px; }
+    .req-title{ display:flex; align-items:center; gap:8px; min-width:0; }
+    .req-title-text{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
 
+    .priority-tag{
+      display:inline-flex; align-items:center; justify-content:center;
+      min-width:36px; height:20px; padding:0 6px;
+      border-radius:999px; font-size:12px; color:#fff; cursor:pointer; user-select:none;
+    }
+    .p0{ background:#d93025; }
+    .p1{ background:#f9ab00; color:#202124; }
+    .p2{ background:#188038; }
+
+    .req-btns{ display:flex; gap:8px; }
     .btn{
       padding:6px 12px; font-size:12px; border:1px solid var(--border);
-      border-radius:999px; background:#fff; cursor:pointer;
-      transition:background .12s, transform .08s;
+      border-radius:999px; background:#fff0; color:var(--text);
+      cursor:pointer; transition:background .12s, transform .08s, box-shadow .12s;
     }
-    .btn:hover{ background:#f7f9fc; }
-    .btn:active{ transform:translateY(1px); }
-    .btn-primary{ background:var(--primary); color:#fff; border-color:transparent; }
-    .btn-primary:hover{ filter:brightness(1.05); }
-    .btn-danger{ color:#b3261e; border-color:#f1c7c7; }
-    .btn-danger:hover{ background:#fff5f5; }
+    .btn:hover{ background:color-mix(in oklab, var(--surface) 90%, transparent); box-shadow:var(--shadow-1); }
+    .btn:active{ transform:translateY(1px); box-shadow:none; }
 
-    .req-body{ display:none; padding:10px 12px 12px; border-top:1px solid var(--border); background:#fff; }
-    .req.open .req-body{ display:block; }
+    .btn-check{
+      width:32px; height:32px; border-radius:10px; display:grid; place-items:center;
+      font-weight:700; border:1px solid var(--border); box-shadow:var(--shadow-1);
+      background:#fff0; color:var(--icon);
+    }
 
-    .links{ max-height:240px; overflow:auto; border:1px solid #f0f0f0; border-radius:10px; padding:6px; background:#fff; }
+    .req-body{
+      overflow:hidden; max-height:0; padding:0 12px;
+      border-top:1px solid transparent;
+      transition:max-height .22s ease, padding .22s ease, border-color .22s ease;
+      background:var(--bg);
+    }
+    .req.open .req-body{ border-color:var(--border); }
+
+    .links{ max-height:260px; overflow:auto; border:1px solid var(--border); border-radius:10px; padding:6px; background:var(--bg); }
     .link-row{ display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:8px; }
-    .link-row:hover{ background:#f7f9fc; }
+    .link-row:hover{ background:color-mix(in oklab, var(--surface) 85%, transparent); }
     .link-row img{ width:16px; height:16px; }
-    .link-row a{ flex:1; color:#1f1f1f; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .muted{ color:var(--muted); font-size:12px; }
+    .link-row a{ flex:1; color:var(--text); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    /* 列表容器 */
-    #reqList{ display:flex; flex-direction:column; }
+    /* 小号图标按钮（复制 & 删除），无边框，靠右 */
+    .link-mini{
+      background:none; border:none; cursor:pointer; padding:0 4px;
+      color:var(--accent); line-height:1; display:grid; place-items:center;
+    }
+    .link-mini:hover{ color:var(--accent-hover); }
+    .link-remove{ font-size:12px; padding:0 6px; color:var(--muted); }
+    .link-remove:hover{ color:var(--danger); }
+    .link-copy .icon{ width:14px; height:14px; } /* 复制图标小一点 */
 
-    /* 底部一行：只放“：”，永远位于列表之后且右对齐 */
     footer.footer{
-      display:flex; justify-content:flex-end; align-items:center;
-      border-top:1px solid var(--border); margin-top:8px; padding-top:8px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-top:1px solid var(--border); margin-top:8px; padding-top:8px; gap:12px;
     }
-    #btnMore{
-      width:40px; height:40px; border:none; border-radius:20px;
-      background:var(--primary); color:#fff; font-size:18px;
-      box-shadow:var(--shadow-2); cursor:pointer;
-      transition:filter .12s, transform .08s;
+    .footer-hint{
+      color:var(--muted); font-size:12px; line-height:1.4;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
-    #btnMore:hover{ filter:brightness(1.05); }
-    #btnMore:active{ transform:translateY(1px); }
 
-    /* 归档面板（位置随内容，不固定悬浮） */
-    .overlay{ position:fixed; inset:0; background:rgba(32,33,36,.08); display:none; z-index:10; }
-    .overlay.show{ display:block; }
-    .panel{
-      position:absolute; right:10px; bottom:64px; width:340px;
-      background:#fff; border:1px solid var(--border); border-radius:var(--radius);
-      box-shadow:var(--shadow-2); padding:10px 10px 12px;
-    }
-    .panel h4{ margin:4px 0 8px; font-size:14px; font-weight:600; }
-    .arch-item{
-      border:1px solid #f0f0f0; border-radius:10px; padding:8px; margin-bottom:8px;
-      display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; background:#fff;
-    }
-    .arch-ops{ display:flex; gap:6px; }
+    .icon{ width:18px; height:18px; display:block; }
+    .icon-stroke{ fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+    .icon-fill{ fill:currentColor; }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h3>Management Helper</h3>
-      <button id="btnAdd" title="添加新需求">+</button>
+      <div class="header-spacer"></div>
+      <h3 class="title">Twos</h3>
+      <button id="btnAdd" class="btn-icon" title="添加新需求" aria-label="添加">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path class="icon-stroke" d="M12 5v14M5 12h14"/>
+        </svg>
+      </button>
     </header>
-
-    <div class="hint">点击任一需求可展开查看链接；右侧 <b>Done</b> 可归档该需求。</div>
 
     <div id="reqList"></div>
 
-    <!-- 单独一行，右下角“：” -->
     <footer class="footer">
-      <button id="btnMore" title="更多 / 归档管理">：</button>
+      <div id="footerHint" class="footer-hint"></div>
+      <button id="btnMore" class="btn-icon" title="更多 / 归档管理" aria-label="更多">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="icon-fill" cx="6" cy="12" r="1.8"/>
+          <circle class="icon-fill" cx="12" cy="12" r="1.8"/>
+          <circle class="icon-fill" cx="18" cy="12" r="1.8"/>
+        </svg>
+      </button>
     </footer>
-  </div>
-
-  <!-- 归档/设置 面板 -->
-  <div id="overlay" class="overlay">
-    <div class="panel">
-      <h4>归档的需求</h4>
-      <div id="archivedList"></div>
-      <div class="muted">提示：可恢复、重命名或删除归档的需求。</div>
-    </div>
   </div>
 
   <script src="popup.js"></script>

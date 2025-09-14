@@ -4,33 +4,47 @@ let DB = null;
 init();
 
 async function init() {
+  applySavedTheme();          // 跟随 options 的主题开关
+  bindThemeListener();
   DB = await call('db:get');
   renderActiveRequirements();
   bindGlobal();
+  renderFooterHint();
+}
+
+/* 主题同步 */
+function applySavedTheme(){
+  const saved = localStorage.getItem('twos_theme');
+  const theme = saved === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+}
+function bindThemeListener(){
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'twos_theme') applySavedTheme();
+  });
 }
 
 function bindGlobal() {
-  // 右上角 "+" 添加新需求
-  $('#btnAdd').addEventListener('click', async (e) => {
-    e.stopPropagation();
+  $('#btnAdd').addEventListener('click', async () => {
     const name = prompt('新建需求名称：');
     if (!name || !name.trim()) return;
-    const req = await call('req:create', { title: name.trim() });
+    await call('req:create', { title: name.trim() });
     DB = await call('db:get');
-    renderActiveRequirements(req.id); // 聚焦到新建的需求
+    renderActiveRequirements(DB.lastSelectedRequirementId);
+    renderFooterHint();
   });
 
-  // 右下角 "：" 打开归档面板（FAB）
-  $('#btnMore').addEventListener('click', (e) => {
-    e.stopPropagation();
-    renderArchivedPanel();
-    $('#overlay').classList.add('show');
+  $('#btnMore').addEventListener('click', () => {
+    if (chrome.runtime.openOptionsPage) chrome.runtime.openOptionsPage();
+    else window.open(chrome.runtime.getURL('options.html'), '_blank');
   });
+}
 
-  // 点击遮罩关闭
-  $('#overlay').addEventListener('click', (e) => {
-    if (e.target.id === 'overlay') $('#overlay').classList.remove('show');
-  });
+function renderFooterHint() {
+  const active = (DB.requirements || []).filter(r => !r.archived);
+  const baseTips = '点击任一需求可展开查看链接；右侧 ✓ 可归档该需求。';
+  const emptyTips = '暂无进行中的需求。点击右上角「+」新建。';
+  $('#footerHint').textContent = active.length ? baseTips : `${baseTips} ${emptyTips}`;
 }
 
 function renderActiveRequirements(focusId = null) {
@@ -38,61 +52,112 @@ function renderActiveRequirements(focusId = null) {
   listBox.innerHTML = '';
 
   const active = (DB.requirements || []).filter(r => !r.archived);
-  if (active.length === 0) {
-    listBox.innerHTML = `<div class="muted">暂无进行中的需求。点击右上角「+」新建。</div>`;
-    return;
-  }
+  if (active.length === 0) return;
 
   for (const r of active) {
     const card = document.createElement('div');
     card.className = 'req';
     card.dataset.id = r.id;
 
-    // header
     const header = document.createElement('div');
-    header.className = 'req-header ripple';
+    header.className = 'req-header';
 
-    const title = document.createElement('div');
-    title.className = 'req-title';
-    title.textContent = r.title;
+    const titleWrap = document.createElement('div');
+    titleWrap.className = 'req-title';
+
+    const pr = document.createElement('span');
+    pr.className = 'priority-tag ' + (r.priority || 'p1');
+    pr.textContent = (r.priority || 'p1').toUpperCase();
+    pr.title = '点击切换优先级（P0 → P1 → P2）';
+    pr.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const next = nextPriority(r.priority || 'p1');
+      await call('req:setPriority', { id: r.id, priority: next });
+      r.priority = next; // 关键：更新本地状态，支持连续点击
+      pr.classList.remove('p0','p1','p2');
+      pr.classList.add(next);
+      pr.textContent = next.toUpperCase();
+    });
+
+    const tspan = document.createElement('span');
+    tspan.className = 'req-title-text';
+    tspan.textContent = r.title;
+
+    titleWrap.append(pr, tspan);
 
     const btns = document.createElement('div');
     btns.className = 'req-btns';
-    const btnDone = mkBtn('Done', async (ev) => {
+    const btnDone = mkIconBtn(checkIcon(), async (ev) => {
       ev.stopPropagation();
       await call('req:archive', { id: r.id });
       DB = await call('db:get');
       renderActiveRequirements();
+      renderFooterHint();
     });
+    btnDone.classList.add('btn-check');
+    btnDone.title = '标记完成（归档）';
     btns.appendChild(btnDone);
 
-    header.append(title, btns);
+    header.append(titleWrap, btns);
 
-    // body
     const body = document.createElement('div');
     body.className = 'req-body';
-    body.appendChild(renderReqBody(r.id));
+    const inner = document.createElement('div');
+    inner.style.padding = '10px 0 12px';
+    body.appendChild(inner);
+    inner.appendChild(renderReqBody(r.id));
 
-    // 点击 header 展开/收起
     header.addEventListener('click', async () => {
-      // 记录最近选择，方便右键菜单收录
       await call('req:select', { id: r.id });
-      const alreadyOpen = card.classList.contains('open');
-      document.querySelectorAll('.req.open').forEach(el => el.classList.remove('open'));
-      if (!alreadyOpen) card.classList.add('open');
+      toggleCard(card); // 允许多卡同时展开
     });
 
     card.append(header, body);
     listBox.appendChild(card);
 
-    if (focusId && focusId === r.id) card.classList.add('open');
+    if (focusId && focusId === r.id) openCard(card, false);
   }
+}
+
+/* 下拉动画：允许多开 */
+function toggleCard(card) {
+  if (card.classList.contains('open')) closeCard(card);
+  else openCard(card, true);
+}
+function openCard(card, animate = true) {
+  const body = card.querySelector('.req-body');
+  if (!body) return;
+  body.style.maxHeight = '0px';
+  requestAnimationFrame(() => {
+    const contentHeight = body.scrollHeight;
+    if (!animate) body.style.transition = 'none';
+    body.style.maxHeight = contentHeight + 'px';
+    if (!animate) { void body.offsetHeight; body.style.transition = ''; }
+    card.classList.add('open');
+  });
+}
+function closeCard(card) {
+  const body = card.querySelector('.req-body');
+  if (!body) return;
+  const current = body.scrollHeight;
+  body.style.maxHeight = current + 'px';
+  requestAnimationFrame(() => {
+    body.style.maxHeight = '0px';
+    card.classList.remove('open');
+  });
+}
+function refreshOpenHeight(card) {
+  const body = card.querySelector('.req-body');
+  if (!body || !card.classList.contains('open')) return;
+  body.style.maxHeight = '0px';
+  requestAnimationFrame(() => {
+    body.style.maxHeight = body.scrollHeight + 'px';
+  });
 }
 
 function renderReqBody(reqId) {
   const wrap = document.createElement('div');
 
-  // 操作按钮行
   const ops = document.createElement('div');
   ops.style.display = 'flex';
   ops.style.gap = '8px';
@@ -105,7 +170,14 @@ function renderReqBody(reqId) {
       link: { title: tab.title, url: tab.url, favicon: tab.favIconUrl }
     });
     DB = await call('db:get');
-    refreshReqBody(reqId, wrap);
+
+    const card = document.querySelector(`.req[data-id="${reqId}"]`);
+    if (card) {
+      const bodyInner = card.querySelector('.req-body > div');
+      bodyInner.innerHTML = '';
+      bodyInner.appendChild(renderReqBody(reqId));
+      refreshOpenHeight(card);
+    }
   });
 
   const btnOpenAll = mkBtn('全部打开', async () => {
@@ -113,25 +185,15 @@ function renderReqBody(reqId) {
     for (const l of list) chrome.tabs.create({ url: l.url, active: false });
   });
 
-  // 主操作使用主色调
-  btnAddCur.classList.add('btn-primary');
-
   ops.append(btnAddCur, btnOpenAll);
   wrap.appendChild(ops);
 
-  // 链接列表
   const listBox = document.createElement('div');
   listBox.className = 'links';
   wrap.appendChild(listBox);
 
   fillLinks(listBox, reqId);
   return wrap;
-}
-
-function refreshReqBody(reqId, wrapEl) {
-  const linksBox = wrapEl.querySelector('.links');
-  if (!linksBox) return;
-  fillLinks(linksBox, reqId);
 }
 
 function fillLinks(container, reqId) {
@@ -143,7 +205,7 @@ function fillLinks(container, reqId) {
   }
   for (const l of links) {
     const row = document.createElement('div');
-    row.className = 'link-row ripple';
+    row.className = 'link-row';
 
     const ico = document.createElement('img');
     ico.src = l.favicon || 'icons/icon16.png';
@@ -151,84 +213,100 @@ function fillLinks(container, reqId) {
     const a = document.createElement('a');
     a.href = l.url; a.target = '_blank'; a.textContent = l.title || l.url;
 
-    const rm = mkBtn('移除', async () => {
+    // 复制按钮（在 x 左边，风格一致，无边框小图标）
+    const cp = document.createElement('button');
+    cp.className = 'link-mini link-copy';
+    cp.innerHTML = copyIconSmall();
+    cp.title = '复制链接';
+    cp.addEventListener('click', async () => {
+      try {
+        await copyToClipboard(l.url);
+        // 轻量反馈：闪一下颜色
+        cp.style.color = 'var(--accent-hover)';
+        setTimeout(() => { cp.style.color = ''; }, 350);
+      } catch (e) {
+        alert('复制失败，请手动复制：\n' + l.url);
+      }
+    });
+
+    // 小号 x，无边框
+    const rm = document.createElement('button');
+    rm.className = 'link-mini link-remove';
+    rm.textContent = 'x';
+    rm.title = '移除该链接';
+    rm.addEventListener('click', async () => {
       await call('link:remove', { id: reqId, linkId: l.id });
       DB = await call('db:get');
-      fillLinks(container, reqId);
+      const card = document.querySelector(`.req[data-id="${reqId}"]`);
+      if (card) {
+        const bodyInner = card.querySelector('.req-body > div');
+        bodyInner.innerHTML = '';
+        bodyInner.appendChild(renderReqBody(reqId));
+        refreshOpenHeight(card);
+      }
     });
-    rm.classList.add('btn-danger');
 
-    row.append(ico, a, rm);
+    // 顺序：图标、标题、复制、删除
+    row.append(ico, a, cp, rm);
     container.appendChild(row);
   }
 }
 
-/* 归档面板 */
-function renderArchivedPanel() {
-  const box = $('#archivedList');
-  box.innerHTML = '';
-
-  const archived = (DB.requirements || []).filter(r => r.archived);
-  if (archived.length === 0) {
-    box.innerHTML = `<div class="muted">暂无归档需求</div>`;
-    return;
-  }
-
-  for (const r of archived) {
-    const it = document.createElement('div');
-    it.className = 'arch-item';
-
-    const name = document.createElement('div');
-    name.textContent = r.title;
-
-    const ops = document.createElement('div');
-    ops.className = 'arch-ops';
-
-    const btnOpenAll = mkBtn('全部打开', () => {
-      const list = DB.linksByReq[r.id] || [];
-      for (const l of list) chrome.tabs.create({ url: l.url, active: false });
-    });
-
-    const btnRename = mkBtn('重命名', async () => {
-      const nv = prompt('新的名称：', r.title);
-      if (nv && nv.trim()) {
-        await call('req:rename', { id: r.id, title: nv.trim() });
-        DB = await call('db:get');
-        renderArchivedPanel();
-      }
-    });
-
-    const btnRestore = mkBtn('恢复', async () => {
-      await call('req:unarchive', { id: r.id });
-      DB = await call('db:get');
-      renderActiveRequirements(r.id);
-      renderArchivedPanel();
-    });
-
-    const btnDelete = mkBtn('删除', async () => {
-      if (confirm('删除后不可恢复，确认？')) {
-        await call('req:delete', { id: r.id });
-        DB = await call('db:get');
-        renderArchivedPanel();
-      }
-    });
-    btnDelete.classList.add('btn-danger');
-
-    ops.append(btnOpenAll, btnRename, btnRestore, btnDelete);
-    it.append(name, ops);
-    box.appendChild(it);
-  }
+/* SVG 图标 */
+function checkIcon(){
+  return `
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path class="icon-stroke" d="M20 6L9 17l-5-5"/>
+    </svg>
+  `;
 }
-
-/* 工具方法 */
-function mkBtn(text, onClick) {
+function copyIconSmall(){
+  /* 两层叠放的小方框（复制） */
+  return `
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="9" y="9" width="10" height="10" rx="2" class="icon-stroke"></rect>
+      <rect x="5" y="5" width="10" height="10" rx="2" class="icon-stroke" opacity="0.8"></rect>
+    </svg>
+  `;
+}
+function mkIconBtn(svgHTML, onClick){
   const b = document.createElement('button');
-  b.className = 'btn ripple';
-  b.textContent = text;
+  b.className = 'btn-check';
+  b.innerHTML = svgHTML;
   b.addEventListener('click', onClick);
   return b;
 }
 
+/* 复制到剪贴板（有降级方案） */
+async function copyToClipboard(text){
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  // Fallback
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+/* Utils */
+function nextPriority(p) {
+  if (p === 'p0') return 'p1';
+  if (p === 'p1') return 'p2';
+  return 'p0';
+}
+function mkBtn(text, onClick) {
+  const b = document.createElement('button');
+  b.className = 'btn';
+  b.textContent = text;
+  b.addEventListener('click', onClick);
+  return b;
+}
 function call(type, payload) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({ type, ...payload }, (res) => {

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Management Helper",
-  "version": "1.1.0",
-  "description": "把每个需求的相关链接集中管理，支持一键收录、展开查看、Done 归档与归档管理。",
+  "name": "Twos",
+  "version": "1.3.1",
+  "description": "按需求集中管理相关链接：一键收录、展开查看、完成归档、优先级标记与归档管理。",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -10,9 +10,10 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Management Helper",
+    "default_title": "Twos",
     "default_popup": "popup.html"
   },
+  "options_page": "options.html",
   "permissions": ["storage", "tabs", "contextMenus"],
   "background": {
     "service_worker": "background.js"

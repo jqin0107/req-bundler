@@ -1,0 +1,84 @@
+<!doctype html>
+<html data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <title>Twos · 归档</title>
+  <style>
+    :root{
+      --radius:12px; --border:#e6e6e6; --muted:#5f6368; --text:#202124;
+      --bg:#ffffff; --surface:#fafafa;
+      --shadow-1:0 1px 2px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08);
+    }
+    /* Dark theme overrides（通过 data-theme 控制） */
+    [data-theme="dark"]{
+      --border:#34373b; --muted:#9aa0a6; --text:#e8eaed;
+      --bg:#15171a; --surface:#1b1f23;
+      --shadow-1:0 1px 2px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.4);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      margin:0; padding:0; background:var(--bg); color:var(--text);
+      font-family:Roboto,"Noto Sans",system-ui,-apple-system,"Segoe UI","Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei UI",sans-serif;
+    }
+    .container{ max-width:960px; margin:24px auto; padding:0 20px; }
+
+    .toolbar{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; margin-bottom:12px;
+    }
+    h1{ margin:0; font-size:20px; font-weight:700; }
+    .muted{ color:var(--muted); font-size:12px; }
+
+    .theme-toggle{
+      display:inline-flex; align-items:center; gap:8px;
+      border:1px solid var(--border); border-radius:999px; padding:6px 10px;
+      background:var(--surface); cursor:pointer; user-select:none;
+      box-shadow:var(--shadow-1);
+    }
+    .theme-toggle input{ appearance:none; width:36px; height:20px; border-radius:999px;
+      background:#d0d0d0; position:relative; outline:none; cursor:pointer; }
+    .theme-toggle input::after{
+      content:""; position:absolute; top:2px; left:2px; width:16px; height:16px;
+      background:#fff; border-radius:50%; transition:left .18s ease;
+      box-shadow:0 1px 2px rgba(0,0,0,.25);
+    }
+    /* 开启暗色时的小球右移、底色变深 */
+    [data-theme="dark"] .theme-toggle input{ background:#5c6bc0; }
+    [data-theme="dark"] .theme-toggle input::after{ left:18px; }
+
+    .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px; }
+    .card{ border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); box-shadow:var(--shadow-1); padding:12px; }
+    .card h3{ margin:0 0 6px; font-size:16px; }
+    .meta{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .links{ border:1px solid var(--border); border-radius:10px; padding:6px; max-height:240px; overflow:auto; }
+    .link{ display:flex; gap:8px; align-items:center; padding:4px; border-radius:6px; }
+    .link:hover{ background:rgba(127,127,127,.08); }
+    .link img{ width:16px; height:16px; }
+    .link a{ flex:1; text-decoration:none; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .row{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+    button{ padding:6px 12px; font-size:12px; border:1px solid var(--border);
+      border-radius:999px; background:transparent; color:var(--text); cursor:pointer; }
+    button:hover{ background:rgba(127,127,127,.08); }
+    .btn-danger{ color:#b3261e; border-color:#f1c7c7; }
+    .btn-danger:hover{ background:rgba(179,38,30,.08); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <h1>归档的需求</h1>
+      <!-- 右上角：深色模式开关（默认浅色） -->
+      <label class="theme-toggle" title="深色模式">
+        <span class="muted">深色模式</span>
+        <input id="themeSwitch" type="checkbox" />
+      </label>
+    </div>
+    <div class="muted" style="margin-bottom:12px;">可恢复、重命名、删除或一键打开所有链接</div>
+    <div id="archivedGrid" class="grid"></div>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
